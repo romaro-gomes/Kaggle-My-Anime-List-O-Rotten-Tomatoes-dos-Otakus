@@ -1,0 +1,142 @@
+---
+title: "My Anime List - O Rotten Tomatoes dos Otakus"
+author: "Romario"
+date: "`r Sys.Date()`"
+output:
+ html_document:
+  code_folding: hide
+  toc: true
+  toc_float:
+   collapsed: true
+   smooth_scroll: true
+ 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+   warning=FALSE, message=FALSE, tidy=TRUE,	tidy.opts=list(arrow=TRUE,	indent=2),fig.width = 10, fig.align = 'center', fig.asp=0.618, out.width = '100%')
+```
+
+# Introdução
+
+Animes são uma das minhas paixões. A primeira de concientemente vi um `desenho japonês` foi no meu jardim de infância, quando foi me apresentado as animações da TV Globinho. Talvez eu tivesse 6-7 anos, mas o meu facínio por personagens de olhos grandes iniciou-se ai. E até hoje, sou um consumidor desse estilo de animação, com a franquia Digimon sendo minha preferida.
+
+Mesmo amando animes e apesar do aumento de acesso aos produtos japoneses, meu tempo livre foi diminuido na mesma proporção com os anos.... Não posso mais assitir cada novo lançamento, não posso perder horas ver um anime cuja a historia começa em nada e vai a lugar nenhum. 
+
+Fui, como um adulto moderno que sou, torna-me refém da opinião alheia para saber o que é bom ou não. E assi chegamos no My Anime List.
+
+O My Anime List é como se fosse um repositório, Lá tem infomações técnicas sobre várias animações japonesas. E não só isso, o que os fãs pensam delas. Ela é bastante útil pois permite que você busque os últimos lançamentos pelos tipo e demografia de anime que você gosta. E apartir do voto populr, se essa produção merece seu tempo ou não.
+
+O dataset que vamos analisar hoje foi disponibilizado no kaggle, visite-o por este [link](https://www.kaggle.com/datasets/brunobacelardc/myanimelist-top-1000-anime), pelo usuário [Bruno Bacelar Domingues Correia](https://www.kaggle.com/brunobacelardc),
+
+# Biblotecas Usadas
+```{r}
+library(tidyverse)
+library(treemap)
+library(stringr)
+library(RColorBrewer)
+library(TeachingDemos)
+library(plotly)
+library(kableExtra)
+
+```
+
+# Importação dos dados
+## Versão Original
+```{r}
+animes_raw=read_csv('mal_top2000_anime.csv')
+```
+## Versão Para Análise
+```{r}
+animes = animes_raw
+```
+
+# Análise dos Dados
+
+## Tipo de animes
+
+Os tipos são relacionados a qual midia audiovisual ele foi lançado o produto, como filme, serie de TV, OVA, música e etc
+```{r}
+
+pizza= function(x) {
+ tabela=table(x)
+ tabela=tabela[order(tabela)]
+ prop_tabela=prop.table(tabela)*100
+ pie(tabela,labels =paste(prop_tabela,'%') , col = brewer.pal(n =names(tabela) , name = "Set1"), clockwise = T)
+ legend("bottomleft", legend =names(tabela),
+ fill = brewer.pal(n = names(tabela), name = "Set1"))
+ 
+}
+
+arvore= function(x,titulo=''){
+     table(x) %>%
+     as.data.frame() %>%  treemap("x", "Freq",title = titulo, fontfamily.title = "serif",
+     fontsize.title = 24)
+}
+
+arvore(animes$Type,'Tipos de Animes')
+
+```
+
+
+
+## Demografia
+
+A Demografia é algo curioso, pois aqui a demografia nada mais se refere ao público-alvo. Entretanto sabendo a demografia de uma animes é possivel esperar alguns cliches, certos desenvolvimentos e estilos de personagens. A demografia, pelo menos para minha visão ocidental, dizia mais sobre o animes, do propria o seu gênero.
+```{r}
+arvore(animes$Demographic)
+```
+
+## Gênero e Temas de Animes
+
+O Gênero de animes são os em sua maioria parecidos com os Gêneros de filmes e livres: fantasia, suspese, ação e outros. Os Temas são especificos, pode ser tema escolar, espacial, mechas (robos gigantes), mitologia e etc
+
+Neste Dataset um anime pode ter mais de um Gênero ou Tema, entretanto eles estão aglutinados em uma coluna. Iremos separa-los com o seguinte código.
+
+```{r}
+animes[paste0('Genero.',1:6)]=  str_split_fixed(animes$Genres,',', 6)
+
+animes$Genero.1=str_remove_all(animes$Genero.1,"[[:punct:]]") 
+animes$Genero.2=str_remove_all(animes$Genero.2,"[[:punct:]]") 
+animes$Genero.3=str_remove_all(animes$Genero.3,"[[:punct:]]") 
+animes$Genero.4=str_remove_all(animes$Genero.4,"[[:punct:]]") 
+animes$Genero.5=str_remove_all(animes$Genero.4,"[[:punct:]]")
+animes$Genero.6=str_remove_all(animes$Genero.4,"[[:punct:]]")
+
+animes[paste0('Tema.',1:6)]=str_split_fixed(animes$`Theme(s)`,',', 6)
+
+animes$Tema.1=str_remove_all(animes$Tema.1,"[[:punct:]]") 
+animes$Tema.2=str_remove_all(animes$Tema.2,"[[:punct:]]") 
+animes$Tema.3=str_remove_all(animes$Tema.3,"[[:punct:]]") 
+animes$Tema.4=str_remove_all(animes$Tema.4,"[[:punct:]]") 
+animes$Tema.5=str_remove_all(animes$Tema.4,"[[:punct:]]")
+animes$Tema.6=str_remove_all(animes$Tema.4,"[[:punct:]]")
+
+```
+
+## Quanto Temas há no dataset
+```{r}
+Tema_total=animes %>% select(Name,starts_with('Tema')) %>% pivot_longer(cols = starts_with("Tema"),values_to = 'Tema',values_drop_na = T) %>% mutate_all(na_if,"") %>% filter(!is.na(Tema))
+Tema_total$Tema=str_squish(Tema_total$Tema)
+Tema_total= Tema_total %>% group_by(Tema) %>% summarise(Total=n()) %>% arrange(desc(Total)) 
+kbl(Tema_total, align = 'c') %>% kable_minimal(bootstrap_options = "striped", full_width =T, html_font = 10 ) %>%
+        scroll_box(width = "900px", height = "200px")
+```
+## E Generos, quantos Tem?
+```{r}
+Genero_total=animes %>% select(Name,starts_with('Genero')) %>% pivot_longer(cols = starts_with("Genero"),values_to = 'Genero',values_drop_na = T) %>% mutate_all(na_if,"") %>% filter(!is.na(Genero))
+Genero_total$Genero=str_squish(Genero_total$Genero)
+Genero_total= Genero_total %>% group_by(Genero) %>% summarise(Total=n()) %>% arrange(desc(Total)) 
+Genero_total %>% 
+        kbl(align = 'c') %>% kable_minimal(bootstrap_options = "striped", full_width =T, html_font = 10 ) %>%
+        scroll_box(width = "900px", height = "200px")
+
+```
+
+
+# Pequeno Shiny App
+
+Você também pode experimentar meu app em shiny para visualizar alguns outros dados.
+[Link](https://10b92c-romario-gomes.shinyapps.io/animes_app/)
+
+Obrigado a todos.
